@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "rdb_protocol/env.hpp"
 #include "rdb_protocol/ql2.pb.h"
 #include "rdb_protocol/datum.hpp"
 
@@ -18,72 +19,55 @@ void fill_vector(std::vector<E>& v, H x, T ... xs){
     fill_vector(v, std::forward<T>(xs) ...);
 }
 
+class reql;
+
 class reql {
+private:
+
+    class pvar;
+    friend class pvar;
+
 public:
     static const reql r;
 
     typedef std::pair<std::string, reql> key_value;
 
-    reql(scoped_ptr_t<Term>&& term_, size_t next_var_id_) :
-        term(std::move(term_)), next_var_id(next_var_id_) { }
+    reql(scoped_ptr_t<Term>&& term_) :
+        term(std::move(term_)) { }
  
-    reql(const double val) : next_var_id(0) { set_datum(datum_t(val)); }
-    reql(const std::string& val) : next_var_id(0) { set_datum(datum_t(val)); }
-    reql(const datum_t &d) : next_var_id(0) { set_datum(d); }
+    reql(const double val) { set_datum(datum_t(val)); }
+    reql(const std::string& val) { set_datum(datum_t(val)); }
+    reql(const datum_t &d) { set_datum(d); }
     
     static reql boolean(bool b){
         return reql(datum_t(datum_t::R_BOOL, b));
     }
 
-    reql(std::vector<reql>&& val) : next_var_id(0) {
+    reql(std::vector<reql>&& val){
         for (auto i = val.begin(); i != val.end(); i++) {
-            next_var_id = std::max(next_var_id, i->next_var_id);
             add_arg(std::move(*i));
         }
     }
 
     reql(const reql& other) = delete;
-    // : term(new Term(*other.term)), next_var_id(other.next_var_id) { }
+    // : term(new Term(*other.term)) { }
 
-    reql(reql&& other) : term(std::move(other.term)), next_var_id(other.next_var_id) { }
+    reql(reql&& other) : term(std::move(other.term)) { }
 
-    
     reql& operator= (const reql& other) = delete; /* {
         term = make_scoped<Term>(*other.term);
-        next_var_id = other.next_var_id;
         return *this;
     } */
 
     reql& operator= (reql&& other){
         term.swap(other.term);
-        next_var_id = other.next_var_id;
         return *this;
     }
 
-    template <typename T>
-    reql gensym(std::vector<reql>& args){
-        next_var_id ++;
-        args.emplace_back(next_var_id);
-        return r.var(next_var_id);
-    }
-
-    static reql var(size_t var_id) {
-        auto t = make_scoped<Term>();
-        t->set_type(Term::VAR);
-        t->mutable_args()->AddAllocated(reql(static_cast<double>(var_id)).term.release());
-        return reql(std::move(t), var_id + 1);
-    }
-
-    template <typename ... T>
-    reql(std::function<reql(T ...)> f){
-        term = make_scoped<Term>();
-        term->set_type(Term::FUNC);
-        std::vector<reql> args;
-        reql body = f(gensym<T>(args) ...);
-        term->mutable_args()->AddAllocated(reql(std::move(args)).term.release());
-        term->mutable_args()->AddAllocated(body.term.release());
-        next_var_id = std::max(next_var_id, body.next_var_id);
-    }
+    typedef const pvar var;
+    
+    static reql fun(const var& a, reql&& body);
+    static reql fun(const var& a, const var& b, reql&& body);
 
     template<typename ... T>
     static reql array(T ... a){
@@ -96,7 +80,7 @@ public:
         auto t = make_scoped<Term>();
         t->set_type(Term::DATUM);
         t->mutable_datum()->set_type(Datum::R_NULL);
-        return reql(std::move(t), 0);
+        return reql(std::move(t));
     }
 
     template <typename ... T>
@@ -122,7 +106,6 @@ public:
     reql copy() const {
         reql ret;
         ret.term = make_scoped<Term>(*term);
-        ret.next_var_id = next_var_id;
         return ret;
     }
 
@@ -134,12 +117,11 @@ public:
     reql name(T ... a) const                                    \
     { return call(Term::termtype, std::forward<T>(a) ...); }
 
-
     REQL_METHOD(operator+, ADD);
+    REQL_METHOD(count, COUNT);
+    REQL_METHOD(map, MAP);
 
-    reql map(std::function<reql(reql)> f){
-        return call(Term::MAP, f);
-    }
+#undef REQL_METHOD
 
 private:
 
@@ -160,22 +142,45 @@ private:
     template<typename T>
     void add_arg(T a){
         reql it(std::forward<T>(a));
-        next_var_id = std::max(next_var_id, it.next_var_id);
         term->mutable_args()->AddAllocated(it.term.release()); 
     }
 
+    reql() : term(NULL) { }
+
     scoped_ptr_t<Term> term;
-    reql() : term(nullptr), next_var_id(0) { }
-    size_t next_var_id;
 };
+
+const reql& r = reql::r;
+
 
 template <>
 void reql::add_arg(key_value&& kv){
-    next_var_id = std::max(next_var_id, kv.second.next_var_id);
     auto ap = make_scoped<Term_AssocPair>();        
     ap->set_key(kv.first);
-    ap->mutable_val()->MergeFrom(*kv.second.term);
+    ap->mutable_val()->CopyFrom(*kv.second.term);
     term->mutable_optargs()->AddAllocated(ap.release());
+}
+
+class reql::pvar : public reql {
+public:
+    int id;
+    pvar(env_t& env) : reql(), id(env.gensym()) {
+       term = r.call(Term::VAR, static_cast<double>(id)).term;
+    }
+    pvar(const pvar& var) : reql(var.copy()), id(var.id) { }
+};
+
+reql reql::fun(const reql::var& a, reql&& body){
+    std::vector<reql> v;
+    v.emplace_back(static_cast<double>(a.id));
+    return reql::r.call(Term::FUNC, std::move(v), std::move(body));
+}
+
+reql reql::fun(const reql::var& a, const reql::var& b, reql&& body){
+    std::vector<reql> v;
+    v.emplace_back(static_cast<double>(a.id));
+    v.emplace_back(static_cast<double>(b.id));
+    return reql::r.call(Term::FUNC, std::move(v), std::move(body));
 }
 
 } // namespace ql
