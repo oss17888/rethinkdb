@@ -9,12 +9,12 @@
 #include "buffer_cache/mirrored/config.hpp"
 #include "containers/archive/boost_types.hpp"
 #include "rdb_protocol/btree.hpp"
-#include "rdb_protocol/pb_utils.hpp"
 #include "rdb_protocol/proto_utils.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "serializer/log/log_serializer.hpp"
 #include "unittest/gtest.hpp"
 #include "unittest/unittest_utils.hpp"
+#include "rdb_protocol/minidriver.hpp"
 
 #define TOTAL_KEYS_TO_INSERT 1000
 
@@ -85,11 +85,10 @@ std::string create_sindex(btree_store_t<rdb_protocol_t> *store) {
                                         1, WRITE_DURABILITY_SOFT,
                                         &token_pair, &txn, &super_block, &dummy_interruptor);
 
-    Term mapping;
-    Term *arg = ql::pb::set_func(&mapping, 1);
-    N2(GET_FIELD, NVAR(1), NDATUM("sid"));
+    ql::reql_t::var_t arg = 1;
+    ql::reql_t mapping = ql::r.fun(arg, arg["sid"]);
 
-    ql::map_wire_func_t m(mapping, std::map<int64_t, Datum>());
+    ql::map_wire_func_t m(mapping.get(), std::map<int64_t, Datum>());
 
     write_message_t wm;
     wm << m;

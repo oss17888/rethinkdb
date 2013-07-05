@@ -21,7 +21,7 @@
 #include "rdb_protocol/btree.hpp"
 #include "rdb_protocol/env.hpp"
 #include "rdb_protocol/transform_visitors.hpp"
-#include "rdb_protocol/pb_utils.hpp"
+#include "rdb_protocol/minidriver.hpp"
 #include "rdb_protocol/term_walker.hpp"
 #include "rpc/semilattice/view/field.hpp"
 #include "rpc/semilattice/watchable.hpp"
@@ -1092,31 +1092,22 @@ struct rdb_read_visitor_t : public boost::static_visitor<void> {
             int success = deserialize(&read_stream, &sindex_mapping);
             guarantee(success == ARCHIVE_SUCCESS, "Corrupted sindex description.");
 
-            Term filter_term;
-            int arg1 = ql_env.gensym();
-            int sindex_val = ql_env.gensym();
-            Term *arg = ql::pb::set_func(&filter_term, arg1);
-            N2(FUNCALL, arg = ql::pb::set_func(arg, sindex_val);
-               N2(ALL,
-                  if (rget.sindex_start_value.has()) {
-                      N2(GE, NVAR(sindex_val),
-                         rget.sindex_start_value->write_to_protobuf(ql::pb::set_datum(arg)));
-                  } else {
-                      NDATUM_BOOL(true);
-                  },
-                  if (rget.sindex_end_value.has()) {
-                      N2(LE, NVAR(sindex_val),
-                         rget.sindex_end_value->write_to_protobuf(ql::pb::set_datum(arg)));
-                  } else {
-                      NDATUM_BOOL(true);
-                  }),
-               N2(FUNCALL,
-                  *arg = sindex_mapping.get_term(),
-                  NVAR(arg1)));
+            ql::reql_t::var_t arg1 = ql_env.gensym();
+            ql::reql_t::var_t sindex_val = ql_env.gensym();
 
+            using ql::r;
+            ql::reql_t in_rangep =
+                r.fun(sindex_val,
+                      (rget.sindex_start_value.has()
+                       ? sindex_val >= r.expr(*rget.sindex_start_value)
+                       : r.boolean(true))
+                      && (rget.sindex_end_value.has()
+                          ? sindex_val <= r.expr(*rget.sindex_end_value)
+                          : r.boolean(true)));
+            ql::reql_t filter_term = r.fun(arg1, in_rangep(r.expr(sindex_mapping.get_term())(arg1)));
             Backtrace dummy_backtrace;
-            ql::propagate_backtrace(&filter_term, &dummy_backtrace);
-            ql::filter_wire_func_t sindex_filter(filter_term, std::map<int64_t, Datum>());
+            ql::propagate_backtrace(&filter_term.get(), &dummy_backtrace);
+            ql::filter_wire_func_t sindex_filter(filter_term.get(), std::map<int64_t, Datum>());
 
             // We then add this new filter to the beginning of the transform stack
             rdb_protocol_details::transform_t sindex_transform(rget.transform);

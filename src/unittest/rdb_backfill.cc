@@ -7,7 +7,7 @@
 #include "clustering/immediate_consistency/branch/replier.hpp"
 #include "extproc/pool.hpp"
 #include "extproc/spawner.hpp"
-#include "rdb_protocol/pb_utils.hpp"
+#include "rdb_protocol/minidriver.hpp"
 #include "rdb_protocol/proto_utils.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "rdb_protocol/env.hpp"
@@ -236,11 +236,10 @@ void run_sindex_backfill_test(io_backender_t *io_backender,
     std::string sindex_id("sid");
     {
         /* Create a secondary index object. */
-        Term mapping;
-        Term *arg = ql::pb::set_func(&mapping, 1);
-        N2(GET_FIELD, NVAR(1), NDATUM("id"));
+        ql::reql_t::var_t arg = 1;
+        ql::reql_t mapping = ql::r.fun(arg, arg["id"]);
 
-        ql::map_wire_func_t m(mapping, std::map<int64_t, Datum>());
+        ql::map_wire_func_t m(mapping.get(), std::map<int64_t, Datum>());
 
         rdb_protocol_t::write_t write(rdb_protocol_t::sindex_create_t(sindex_id, m));
 

@@ -2,7 +2,7 @@
 
 #include "rdb_protocol/counted_term.hpp"
 #include "rdb_protocol/env.hpp"
-#include "rdb_protocol/pb_utils.hpp"
+#include "rdb_protocol/minidriver.hpp"
 #include "rdb_protocol/ql2.pb.h"
 #include "rdb_protocol/term_walker.hpp"
 
@@ -273,20 +273,15 @@ bool func_t::filter_call(counted_t<const datum_t> arg) {
 
 counted_t<func_t> func_t::new_identity_func(env_t *env, counted_t<const datum_t> obj,
                                             const protob_t<const Backtrace> &bt_src) {
-    protob_t<Term> twrap = make_counted_term();
-    Term *const arg = twrap.get();
-    N2(FUNC, N0(MAKE_ARRAY), NDATUM(obj));
+    protob_t<Term> twrap = ql::r.fun(*obj).release_counted();
     propagate_backtrace(twrap.get(), bt_src.get());
     return make_counted<func_t>(env, twrap);
 }
 
 counted_t<func_t> func_t::new_eq_comparison_func(env_t *env, counted_t<const datum_t> obj,
                     const protob_t<const Backtrace> &bt_src) {
-    protob_t<Term> twrap = make_counted_term();
-    Term *const arg = twrap.get();
-    int var = env->gensym();
-    N2(FUNC, N1(MAKE_ARRAY, NDATUM(static_cast<double>(var))),
-       N2(EQ, NDATUM(obj), NVAR(var)));
+    reql_t::var_t var = env->gensym();
+    protob_t<Term> twrap = r.fun(var, var == r.expr(*obj)).release_counted();
     propagate_backtrace(twrap.get(), bt_src.get());
     return make_counted<func_t>(env, twrap);
 }

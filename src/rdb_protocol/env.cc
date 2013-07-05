@@ -1,7 +1,7 @@
 #include "rdb_protocol/env.hpp"
 
 #include "rdb_protocol/counted_term.hpp"
-#include "rdb_protocol/pb_utils.hpp"
+#include "rdb_protocol/minidriver.hpp"
 #include "rdb_protocol/term_walker.hpp"
 
 #pragma GCC diagnostic ignored "-Wshadow"
@@ -37,8 +37,7 @@ counted_t<val_t> env_t::get_js_func(const std::string &s) {
 
 bool env_t::add_optarg(const std::string &key, const Term &val) {
     if (optargs.count(key)) return true;
-    protob_t<Term> arg = make_counted_term();
-    N2(FUNC, N0(MAKE_ARRAY), *arg = val);
+    protob_t<Term> arg = r.fun(make_scoped<Term>(val)).release_counted();
     propagate_backtrace(arg.get(), &val.GetExtension(ql2::extension::backtrace));
     optargs[key] = wire_func_t(*arg, std::map<int64_t, Datum>());
     counted_t<func_t> force_compilation = optargs[key].compile(this);

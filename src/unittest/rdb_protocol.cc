@@ -8,7 +8,6 @@
 #include "extproc/pool.hpp"
 #include "extproc/spawner.hpp"
 #include "memcached/protocol.hpp"
-#include "rdb_protocol/pb_utils.hpp"
 #include "rdb_protocol/proto_utils.hpp"
 #include "rdb_protocol/protocol.hpp"
 #include "rpc/directory/read_manager.hpp"
@@ -17,6 +16,7 @@
 #include "serializer/translator.hpp"
 #include "unittest/dummy_namespace_interface.hpp"
 #include "unittest/gtest.hpp"
+#include "rdb_protocol/minidriver.hpp"
 
 #include "memcached/protocol_json_adapter.hpp"
 
@@ -169,11 +169,10 @@ TEST(RDBProtocol, OvershardedGetSet) {
 std::string create_sindex(namespace_interface_t<rdb_protocol_t> *nsi,
                           order_source_t *osource) {
     std::string id = uuid_to_str(generate_uuid());
-    Term mapping;
-    Term *arg = ql::pb::set_func(&mapping, 1);
-    N2(GET_FIELD, NVAR(1), NDATUM("sid"));
+    ql::reql_t::var_t arg = 1;
+    ql::reql_t mapping = ql::r.fun(arg, arg["sid"]);
 
-    ql::map_wire_func_t m(mapping, std::map<int64_t, Datum>());
+    ql::map_wire_func_t m(mapping.get(), std::map<int64_t, Datum>());
 
     rdb_protocol_t::write_t write(rdb_protocol_t::sindex_create_t(id, m));
     rdb_protocol_t::write_response_t response;
