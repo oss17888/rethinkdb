@@ -19,7 +19,7 @@ public:
     ~extproc_job_t();
 
     // All data written and read by the user must be accounted for, or the worker will
-    //  have to be killed and restarted
+    //  has to be killed and restarted
     read_stream_t *read_stream();
     write_stream_t *write_stream();
 
