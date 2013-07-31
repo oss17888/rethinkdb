@@ -25,7 +25,6 @@ public:
 
 private:
     extproc_pool_t *pool;
-    size_t worker_index;
     extproc_worker_t *worker;
 };
 

@@ -4,6 +4,7 @@
 
 #include "unittest/unittest_utils.hpp"
 
+#include "arch/runtime/coroutines.hpp"
 #include "containers/archive/archive.hpp"
 #include "extproc/extproc_pool.hpp"
 #include "extproc/extproc_spawner.hpp"

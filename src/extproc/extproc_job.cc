@@ -7,13 +7,13 @@ extproc_job_t::extproc_job_t(extproc_pool_t *_pool,
                              bool (*worker_fn) (read_stream_t *, write_stream_t *),
                              signal_t *interruptor) :
     pool(_pool) {
-    worker = pool->acquire_worker(&worker_index, interruptor);
+    worker = pool->acquire_worker(interruptor);
     worker->run_job(worker_fn);
 }
 
 extproc_job_t::~extproc_job_t() {
     assert_thread();
-    pool->release_worker(worker, worker_index);
+    pool->release_worker(worker);
 }
 
 // All data written and read by the user must be accounted for, or things will break
