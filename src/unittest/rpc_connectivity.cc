@@ -597,9 +597,16 @@ void run_check_headers_test() {
     ASSERT_EQ(1, conn.write(&badchar, 1));
     let_stuff_happen();
 
-    // Try to write something, and discover that the other end has shut down.
-    UNUSED int64_t res = conn.write("a", 1);
-    let_stuff_happen();
+    // Make sure each side of the connection is closed
+    int64_t res = conn.write("a", 1);
+    ASSERT_EQ(res, -1);
+
+    char buffer[1024];
+    do {
+        res = conn.read(&buffer, 1024);
+    } while (res != 0);
+    ASSERT_EQ(res, 0);
+
     ASSERT_FALSE(conn.is_write_open());
     ASSERT_FALSE(conn.is_read_open());
 }
@@ -645,9 +652,16 @@ void run_different_version_test() {
     ASSERT_FALSE(send_write_message(&conn, &bad_version_msg));
     let_stuff_happen();
 
-    // Try to write something, and discover that the other end has shut down.
-    UNUSED int64_t res = conn.write("a", 1);
-    let_stuff_happen();
+    // Make sure each side of the connection is closed
+    int64_t res = conn.write("a", 1);
+    ASSERT_EQ(res, -1);
+
+    char buffer[1024];
+    do {
+        res = conn.read(&buffer, 1024);
+    } while (res != 0);
+    ASSERT_EQ(res, 0);
+
     ASSERT_FALSE(conn.is_write_open());
     ASSERT_FALSE(conn.is_read_open());
 }
@@ -693,9 +707,16 @@ void run_different_arch_test() {
     ASSERT_FALSE(send_write_message(&conn, &bad_arch_msg));
     let_stuff_happen();
 
-    // Try to write something, and discover that the other end has shut down.
-    UNUSED int64_t res = conn.write("a", 1);
-    let_stuff_happen();
+    // Make sure each side of the connection is closed
+    int64_t res = conn.write("a", 1);
+    ASSERT_EQ(res, -1);
+
+    char buffer[1024];
+    do {
+        res = conn.read(&buffer, 1024);
+    } while (res != 0);
+    ASSERT_EQ(res, 0);
+
     ASSERT_FALSE(conn.is_write_open());
     ASSERT_FALSE(conn.is_read_open());
 }
@@ -741,9 +762,16 @@ void run_different_build_mode_test() {
     ASSERT_FALSE(send_write_message(&conn, &bad_build_mode_msg));
     let_stuff_happen();
 
-    // Try to write something, and discover that the other end has shut down.
-    UNUSED int64_t res = conn.write("a", 1);
-    let_stuff_happen();
+    // Make sure each side of the connection is closed
+    int64_t res = conn.write("a", 1);
+    ASSERT_EQ(res, -1);
+
+    char buffer[1024];
+    do {
+        res = conn.read(&buffer, 1024);
+    } while (res != 0);
+    ASSERT_EQ(res, 0);
+
     ASSERT_FALSE(conn.is_write_open());
     ASSERT_FALSE(conn.is_read_open());
 }
