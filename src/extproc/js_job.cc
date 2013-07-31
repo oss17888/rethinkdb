@@ -58,6 +58,10 @@ public:
         context(v8::Context::New()),
         scope(context) { }
 
+    ~js_context_t() {
+        context.Dispose();
+    }
+
     v8::Persistent<v8::Context> context;
 #else
     js_context_t() :
